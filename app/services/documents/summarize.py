@@ -1,0 +1,75 @@
+"""Document summarization service."""
+
+from app.core.logging import get_logger
+from app.llm.base import LLMClient
+
+logger = get_logger(__name__)
+
+
+class DocumentSummarizer:
+    """Handles document summarization using LLM."""
+
+    def __init__(self, llm_client: LLMClient) -> None:
+        """Initialize summarizer with an LLM client.
+
+        Args:
+            llm_client: The LLM client to use for summarization
+        """
+        self.llm_client = llm_client
+
+    async def summarize(
+        self,
+        content: str,
+        max_length: int | None = None,
+        style: str | None = None,
+    ) -> str:
+        """Summarize document content.
+
+        Args:
+            content: The document content to summarize
+            max_length: Optional maximum length for the summary
+            style: Optional style for the summary (e.g., 'brief', 'detailed')
+
+        Returns:
+            The summary text
+        """
+        prompt = self._build_summarization_prompt(content, max_length, style)
+        logger.info(f"Summarizing document ({len(content)} chars)")
+
+        try:
+            summary = await self.llm_client.generate(prompt)
+            logger.info(f"Generated summary ({len(summary)} chars)")
+            return summary
+        except Exception as e:
+            logger.error(f"Error during summarization: {e}")
+            raise
+
+    def _build_summarization_prompt(
+        self,
+        content: str,
+        max_length: int | None = None,
+        style: str | None = None,
+    ) -> str:
+        """Build the summarization prompt.
+
+        Args:
+            content: The document content
+            max_length: Optional maximum length
+            style: Optional style
+
+        Returns:
+            The formatted prompt
+        """
+        prompt_parts = ["Please summarize the following document:"]
+
+        if style:
+            prompt_parts.append(f"Style: {style}")
+
+        if max_length:
+            prompt_parts.append(f"Maximum length: approximately {max_length} words")
+
+        prompt_parts.append("\nDocument content:")
+        prompt_parts.append(content)
+        prompt_parts.append("\nSummary:")
+
+        return "\n".join(prompt_parts)
