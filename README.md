@@ -82,13 +82,95 @@ docker compose --profile ollama up -d
 docker compose --profile vllm up -d
 ```
 
-## API Endpoints
+## API Examples
 
-- **Health**: `GET /health`
-- **Upload**: `POST /documents`
-- **List**: `GET /documents`
-- **Summarize**: `POST /documents/{id}/summarize`
-- **Q&A**: `POST /documents/{id}/ask`
+### Health Check
+
+```bash
+curl http://localhost:8000/health
+```
+
+Response:
+```json
+{
+  "status": "healthy",
+  "backend": "ollama",
+  "model": "qwen2.5:3b-instruct",
+  "version": "0.1.0",
+  "timestamp": "2025-12-25T12:00:00Z"
+}
+```
+
+### Upload Document
+
+```bash
+curl -X POST http://localhost:8000/documents \
+  -F "file=@sample.txt"
+```
+
+Response:
+```json
+{
+  "document_id": "abc-123",
+  "filename": "sample.txt",
+  "message": "Document uploaded successfully"
+}
+```
+
+### List Documents
+
+```bash
+curl http://localhost:8000/documents
+```
+
+Response:
+```json
+{
+  "documents": [
+    {
+      "document_id": "abc-123",
+      "filename": "sample.txt",
+      "file_type": ".txt",
+      "file_size": 1024,
+      "upload_time": "2025-12-25T12:00:00Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+### Summarize Document
+
+```bash
+curl -X POST http://localhost:8000/documents/abc-123/summarize \
+  -H "Content-Type: application/json" \
+  -d '{"max_length": 100, "style": "brief"}'
+```
+
+Response:
+```json
+{
+  "document_id": "abc-123",
+  "summary": "This document discusses..."
+}
+```
+
+### Ask Question
+
+```bash
+curl -X POST http://localhost:8000/documents/abc-123/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is this about?"}'
+```
+
+Response:
+```json
+{
+  "document_id": "abc-123",
+  "question": "What is this about?",
+  "answer": "This document is about..."
+}
+```
 
 ## Documentation
 
@@ -96,15 +178,27 @@ docker compose --profile vllm up -d
 - ReDoc: http://localhost:8000/redoc
 - Playground: http://localhost:8000/playground
 
+## Installation
+
+```bash
+# Install dependencies
+pip install -e ".[dev]"
+
+# Or without dev dependencies
+pip install -e .
+```
+
 ## Configuration
 
 Edit `.env` file:
 
 ```bash
-LLM_BACKEND=ollama    # ollama | vllm | mock
+LLM_BACKEND=ollama    # ollama, vllm, or mock (for testing)
 LLM_MODEL=default
 APP_PORT=8000
 ```
+
+**Note:** `mock` backend is useful for testing without requiring a real LLM.
 
 ## Testing
 
@@ -126,13 +220,9 @@ pytest -m integration
 
 ## License
 
-MIT License - see LICENSE file
+MIT License
 
 ## Links
 
 - Repository: https://github.com/kpalubicki/inferdocs
 - Issues: https://github.com/kpalubicki/inferdocs/issues
-
----
-
-Built with Python, FastAPI, and local-first AI principles.
