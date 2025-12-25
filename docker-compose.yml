@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # InferDocs API Service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inferdocs-api
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - APP_VERSION=0.1.0
+      - LLM_BACKEND=${LLM_BACKEND:-ollama}
+      - LLM_MODEL=${LLM_MODEL:-default}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - VLLM_BASE_URL=http://vllm:8000
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data
+    networks:
+      - inferdocs-network
+    restart: unless-stopped
+    profiles:
+      - ollama
+      - vllm
+
+  # Ollama Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: inferdocs-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - inferdocs-network
+    restart: unless-stopped
+    profiles:
+      - ollama
+    # Pull the default model on startup
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        /bin/ollama serve &
+        sleep 5
+        ollama pull qwen2.5:3b-instruct
+        wait
+
+  # vLLM Service (GPU required)
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: inferdocs-vllm
+    ports:
+      - "8001:8000"
+    environment:
+      - MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
+    networks:
+      - inferdocs-network
+    restart: unless-stopped
+    profiles:
+      - vllm
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      --model meta-llama/Llama-3.1-8B-Instruct
+      --host 0.0.0.0
+      --port 8000
+
+volumes:
+  ollama-data:
+
+networks:
+  inferdocs-network:
+    driver: bridge
