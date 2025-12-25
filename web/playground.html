@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InferDocs Playground</title>
+    <link rel="stylesheet" href="/static/playground.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>InferDocs Playground</h1>
+            <p class="subtitle">Local Document Q&A & Summarization Service</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Upload Section -->
+            <section class="card">
+                <h2>Upload Document</h2>
+                <div class="upload-area">
+                    <input type="file" id="fileInput" accept=".txt,.md,.pdf">
+                    <button id="uploadBtn" class="btn btn-primary">Upload</button>
+                </div>
+                <div id="uploadStatus" class="status-message"></div>
+            </section>
+
+            <!-- Document List -->
+            <section class="card">
+                <h2>Documents</h2>
+                <button id="refreshBtn" class="btn btn-secondary">Refresh List</button>
+                <div id="documentsList" class="documents-list"></div>
+            </section>
+
+            <!-- Action Section -->
+            <section class="card">
+                <h2>Action</h2>
+
+                <div class="form-group">
+                    <label for="documentSelect">Select Document:</label>
+                    <select id="documentSelect" class="form-control">
+                        <option value="">-- Select a document --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Mode:</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="mode" value="summarize" checked>
+                            Summarize
+                        </label>
+                        <label>
+                            <input type="radio" name="mode" value="ask">
+                            Ask Question
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group" id="questionGroup" style="display: none;">
+                    <label for="questionInput">Question:</label>
+                    <textarea id="questionInput" class="form-control" rows="2"
+                              placeholder="Enter your question about the document..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="streamCheckbox">
+                        Enable Streaming (if supported)
+                    </label>
+                </div>
+
+                <button id="sendBtn" class="btn btn-primary btn-large">Send</button>
+            </section>
+
+            <!-- Output Section -->
+            <section class="card">
+                <h2>Output</h2>
+                <div id="output" class="output-area">
+                    <p class="placeholder">Results will appear here...</p>
+                </div>
+            </section>
+        </div>
+
+        <footer>
+            <p>API Documentation: <a href="/docs" target="_blank">/docs</a> | <a href="/redoc" target="_blank">/redoc</a></p>
+        </footer>
+    </div>
+
+    <script src="/static/playground.js"></script>
+</body>
+</html>
