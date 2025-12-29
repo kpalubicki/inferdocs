@@ -3,27 +3,26 @@ name = "inferdocs"
 version = "0.1.0"
 description = "Local Document Q&A & Summarization Service"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
     { name = "InferDocs Team" }
 ]
 dependencies = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
-    "pydantic>=2.9.0",
-    "pydantic-settings>=2.6.0",
-    "httpx>=0.27.0",
-    "python-multipart>=0.0.12",
-    "pypdf>=5.1.0",
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.32.1",
+    "pydantic==2.10.6",
+    "pydantic-settings==2.7.1",
+    "httpx==0.28.1",
+    "python-multipart==0.0.19",
+    "pypdf==5.1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.3.0",
-    "pytest-asyncio>=0.24.0",
-    "ruff>=0.7.0",
-    "mypy>=1.13.0",
+    "pytest==8.3.4",
+    "pytest-asyncio==0.24.0",
+    "ruff==0.8.4",
 ]
 
 [build-system]
