@@ -8,11 +8,8 @@ from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.main import app
 
-
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def temp_data_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for test data."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -20,26 +17,31 @@ def temp_data_dir() -> Generator[Path, None, None]:
         yield temp_path
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def setup_test_env(temp_data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Setup test environment variables."""
+    # Set environment variables BEFORE importing anything
     monkeypatch.setenv("LLM_BACKEND", "mock")
     monkeypatch.setenv("LLM_MODEL", "mock-model")
     monkeypatch.setenv("DOCUMENTS_DIR", str(temp_data_dir / "documents"))
     monkeypatch.setenv("METADATA_FILE", str(temp_data_dir / "metadata.json"))
     monkeypatch.setenv("LOG_LEVEL", "ERROR")
 
-    # Force reload of settings
-    from importlib import reload
 
-    from app.core import config
+@pytest.fixture(scope="function")
+def client(setup_test_env: None) -> TestClient:
+    """Create a test client with fresh imports."""
+    # Import AFTER environment is set
+    import sys
 
-    reload(config)
+    # Clear module cache for clean reload
+    modules_to_clear = [key for key in sys.modules.keys() if key.startswith('app.')]
+    for module in modules_to_clear:
+        del sys.modules[module]
 
+    # Now import with fresh settings
+    from app.main import app
 
-@pytest.fixture
-def client() -> TestClient:
-    """Create a test client."""
     return TestClient(app)
 
 

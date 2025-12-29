@@ -98,6 +98,9 @@ class DocumentStorage:
         """
         import datetime
 
+        # Ensure documents directory exists
+        self.documents_dir.mkdir(parents=True, exist_ok=True)
+
         document_id = str(uuid.uuid4())
         file_path = self.documents_dir / f"{document_id}{file_type}"
 
