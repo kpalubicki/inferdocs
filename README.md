@@ -45,12 +45,23 @@ graph TB
 git clone https://github.com/kpalubicki/inferdocs.git
 cd inferdocs
 
-# Install Ollama from https://ollama.ai/
-ollama serve
+# Install Ollama from https://ollama.ai/ (if not installed)
+# Ollama usually auto-starts as a service
+
+# Pull the model
 ollama pull qwen2.5:3b-instruct
+
+# If script execution is disabled, run:
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 # Run the app
 .\scripts\run_windows.ps1
+
+# OR run manually:
+# python -m venv venv
+# .\venv\Scripts\Activate.ps1
+# pip install -e ".[dev]"
+# python -m uvicorn app.main:app --reload
 ```
 
 Open http://localhost:8000/playground
@@ -217,6 +228,49 @@ pytest -m integration
 - Pydantic v2
 - Ollama / vLLM
 - PyPDF
+
+## Troubleshooting
+
+### PowerShell Script Execution Error
+
+**Error:** `running scripts is disabled on this system`
+
+**Solution:**
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+Or run manually without the script:
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+python -m uvicorn app.main:app --reload
+```
+
+### Ollama Already Running
+
+**Error:** `listen tcp 127.0.0.1:11434: bind: address already in use`
+
+**Solution:** Ollama is already running (good!). Skip `ollama serve` and just pull the model:
+```bash
+ollama pull qwen2.5:3b-instruct
+```
+
+### Port 8000 Already in Use
+
+**Error:** `Address already in use`
+
+**Solution:** Change port in `.env`:
+```bash
+APP_PORT=8001
+```
+
+### Python Version Too Old
+
+**Error:** `requires-python >=3.11`
+
+**Solution:** Install Python 3.11 or newer from https://python.org
 
 ## License
 
