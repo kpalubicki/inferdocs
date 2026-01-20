@@ -16,15 +16,15 @@ class OllamaClient:
     """Client for Ollama LLM backend."""
 
     def __init__(self, base_url: str | None = None, model: str | None = None) -> None:
-        """Initialize Ollama client.
-
-        Args:
-            base_url: Base URL for Ollama API
-            model: Model name to use
-        """
         self.base_url = base_url or settings.ollama_base_url
         self.model = model or settings.resolved_model
         self.client = httpx.AsyncClient(timeout=300.0)
+
+    async def __aenter__(self) -> "OllamaClient":
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        await self.close()
 
     async def generate(self, prompt: str, **params: Any) -> str:
         """Generate a completion using Ollama.

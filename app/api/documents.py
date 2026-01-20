@@ -129,23 +129,20 @@ async def summarize_document(
             detail=f"Error extracting text: {str(e)}",
         )
 
-    # Create LLM client and summarizer
-    llm_client = create_llm_client()
-    summarizer = DocumentSummarizer(llm_client)
-
-    # Generate summary
-    try:
-        summary = await summarizer.summarize(
-            content=content,
-            max_length=request.max_length,
-            style=request.style,
-        )
-    except Exception as e:
-        logger.error(f"Error summarizing document {document_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating summary: {str(e)}",
-        )
+    async with create_llm_client() as llm_client:
+        summarizer = DocumentSummarizer(llm_client)
+        try:
+            summary = await summarizer.summarize(
+                content=content,
+                max_length=request.max_length,
+                style=request.style,
+            )
+        except Exception as e:
+            logger.error(f"Error summarizing document {document_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate summary",
+            )
 
     return SummarizeResponse(document_id=document_id, summary=summary)
 
@@ -183,18 +180,15 @@ async def ask_question(document_id: str, request: AskRequest) -> AskResponse:
             detail=f"Error extracting text: {str(e)}",
         )
 
-    # Create LLM client and QA
-    llm_client = create_llm_client()
-    qa = DocumentQA(llm_client)
-
-    # Answer question
-    try:
-        answer = await qa.answer_question(content=content, question=request.question)
-    except Exception as e:
-        logger.error(f"Error answering question for document {document_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating answer: {str(e)}",
-        )
+    async with create_llm_client() as llm_client:
+        qa = DocumentQA(llm_client)
+        try:
+            answer = await qa.answer_question(content=content, question=request.question)
+        except Exception as e:
+            logger.error(f"Error answering question for document {document_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate answer",
+            )
 
     return AskResponse(document_id=document_id, question=request.question, answer=answer)
