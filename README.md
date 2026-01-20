@@ -16,6 +16,17 @@ InferDocs is a local-first microservice backend built with Python and FastAPI. I
 - Docker optional
 - Web playground included
 
+## Preview
+
+### Web Playground
+![Web Playground](docs/screenshots/playground.png)
+
+### Document Q&A
+![Q&A Example](docs/screenshots/qa-example.png)
+
+### API Documentation
+![Swagger UI](docs/screenshots/swagger-ui.png)
+
 ## Architecture
 
 ```mermaid
