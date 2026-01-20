@@ -26,6 +26,37 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
 
 
+def _get_document_content(document_id: str) -> str:
+    """Get and extract document content.
+
+    Args:
+        document_id: The document ID
+
+    Returns:
+        Extracted text content
+
+    Raises:
+        DocumentNotFoundError: If document is not found
+        HTTPException: If text extraction fails
+    """
+    file_path = storage.get_document_path(document_id)
+    if not file_path:
+        raise DocumentNotFoundError(document_id)
+
+    metadata = storage.get_document_metadata(document_id)
+    if not metadata:
+        raise DocumentNotFoundError(document_id)
+
+    try:
+        return ingestor.extract_text(file_path, metadata.file_type)
+    except Exception as e:
+        logger.error(f"Error extracting text from {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error extracting text",
+        )
+
+
 @router.post("", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(file: UploadFile = File(...)) -> DocumentUploadResponse:
     """Upload a document.
@@ -110,24 +141,7 @@ async def summarize_document(
     Raises:
         HTTPException: If document is not found
     """
-    # Get document
-    file_path = storage.get_document_path(document_id)
-    if not file_path:
-        raise DocumentNotFoundError(document_id)
-
-    metadata = storage.get_document_metadata(document_id)
-    if not metadata:
-        raise DocumentNotFoundError(document_id)
-
-    # Extract text
-    try:
-        content = ingestor.extract_text(file_path, metadata.file_type)
-    except Exception as e:
-        logger.error(f"Error extracting text from {document_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error extracting text: {str(e)}",
-        )
+    content = _get_document_content(document_id)
 
     async with create_llm_client() as llm_client:
         summarizer = DocumentSummarizer(llm_client)
@@ -161,24 +175,7 @@ async def ask_question(document_id: str, request: AskRequest) -> AskResponse:
     Raises:
         HTTPException: If document is not found
     """
-    # Get document
-    file_path = storage.get_document_path(document_id)
-    if not file_path:
-        raise DocumentNotFoundError(document_id)
-
-    metadata = storage.get_document_metadata(document_id)
-    if not metadata:
-        raise DocumentNotFoundError(document_id)
-
-    # Extract text
-    try:
-        content = ingestor.extract_text(file_path, metadata.file_type)
-    except Exception as e:
-        logger.error(f"Error extracting text from {document_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error extracting text: {str(e)}",
-        )
+    content = _get_document_content(document_id)
 
     async with create_llm_client() as llm_client:
         qa = DocumentQA(llm_client)
