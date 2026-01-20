@@ -1,6 +1,7 @@
 """Document storage management."""
 
 import json
+import sys
 import uuid
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,12 @@ from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Platform-specific file locking
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 
 class DocumentMetadata:
@@ -56,31 +63,55 @@ class DocumentStorage:
         # Load existing metadata
         self._load_metadata()
 
+    def _lock_file(self, file: Any) -> None:
+        """Lock a file for exclusive access."""
+        if sys.platform == "win32":
+            msvcrt.locking(file.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            fcntl.flock(file.fileno(), fcntl.LOCK_EX)
+
+    def _unlock_file(self, file: Any) -> None:
+        """Unlock a file."""
+        if sys.platform == "win32":
+            msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            fcntl.flock(file.fileno(), fcntl.LOCK_UN)
+
     def _load_metadata(self) -> None:
-        """Load metadata from file."""
+        """Load metadata from file with locking."""
         if self.metadata_file.exists():
             try:
-                with open(self.metadata_file, encoding="utf-8") as f:
-                    data = json.load(f)
-                    for doc_id, meta in data.items():
-                        self.metadata[doc_id] = DocumentMetadata(
-                            document_id=meta["document_id"],
-                            filename=meta["filename"],
-                            file_type=meta["file_type"],
-                            file_size=meta["file_size"],
-                            upload_time=meta["upload_time"],
-                        )
+                with open(self.metadata_file, "r+", encoding="utf-8") as f:
+                    self._lock_file(f)
+                    try:
+                        data = json.load(f)
+                        for doc_id, meta in data.items():
+                            self.metadata[doc_id] = DocumentMetadata(
+                                document_id=meta["document_id"],
+                                filename=meta["filename"],
+                                file_type=meta["file_type"],
+                                file_size=meta["file_size"],
+                                upload_time=meta["upload_time"],
+                            )
+                    finally:
+                        self._unlock_file(f)
                 logger.info(f"Loaded {len(self.metadata)} documents from metadata")
             except Exception as e:
                 logger.error(f"Error loading metadata: {e}")
                 self.metadata = {}
 
     def _save_metadata(self) -> None:
-        """Save metadata to file."""
+        """Save metadata to file with locking."""
         try:
             data = {doc_id: meta.to_dict() for doc_id, meta in self.metadata.items()}
             with open(self.metadata_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
+                self._lock_file(f)
+                try:
+                    f.truncate()
+                    json.dump(data, f, indent=2)
+                    f.flush()
+                finally:
+                    self._unlock_file(f)
             logger.info(f"Saved metadata for {len(self.metadata)} documents")
         except Exception as e:
             logger.error(f"Error saving metadata: {e}")
