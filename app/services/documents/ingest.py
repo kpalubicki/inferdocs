@@ -48,7 +48,7 @@ class DocumentIngestor:
                 content = f.read()
             logger.info(f"Extracted {len(content)} characters from {file_path.name}")
             return content
-        except Exception as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.error(f"Error reading text file {file_path}: {e}")
             raise
 
@@ -62,6 +62,8 @@ class DocumentIngestor:
         Returns:
             Extracted text content
         """
+        from pypdf.errors import PdfReadError
+
         try:
             reader = PdfReader(file_path)
             text_parts = []
@@ -77,7 +79,7 @@ class DocumentIngestor:
                 f"pages in {file_path.name}"
             )
             return content
-        except Exception as e:
+        except (OSError, PdfReadError) as e:
             logger.error(f"Error reading PDF file {file_path}: {e}")
             raise
 

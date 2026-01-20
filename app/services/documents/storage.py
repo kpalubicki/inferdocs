@@ -77,6 +77,44 @@ class DocumentStorage:
         else:
             fcntl.flock(file.fileno(), fcntl.LOCK_UN)
 
+    @staticmethod
+    def _sanitize_filename(filename: str) -> str:
+        """Sanitize filename to prevent path traversal.
+
+        Args:
+            filename: Original filename
+
+        Returns:
+            Sanitized filename
+        """
+        import re
+
+        # Remove path separators and null bytes
+        sanitized = filename.replace("\0", "")
+        sanitized = sanitized.replace("/", "_").replace("\\", "_")
+        # Remove or replace other dangerous characters
+        sanitized = re.sub(r'[<>:"|?*]', "_", sanitized)
+        # Limit length
+        if len(sanitized) > 255:
+            sanitized = sanitized[:255]
+        return sanitized or "unnamed"
+
+    @staticmethod
+    def _validate_document_id(document_id: str) -> bool:
+        """Validate that document_id is a valid UUID.
+
+        Args:
+            document_id: Document ID to validate
+
+        Returns:
+            True if valid UUID, False otherwise
+        """
+        try:
+            uuid.UUID(document_id)
+            return True
+        except ValueError:
+            return False
+
     def _load_metadata(self) -> None:
         """Load metadata from file with locking."""
         if self.metadata_file.exists():
@@ -96,7 +134,7 @@ class DocumentStorage:
                     finally:
                         self._unlock_file(f)
                 logger.info(f"Loaded {len(self.metadata)} documents from metadata")
-            except Exception as e:
+            except (OSError, json.JSONDecodeError, KeyError) as e:
                 logger.error(f"Error loading metadata: {e}")
                 self.metadata = {}
 
@@ -113,7 +151,7 @@ class DocumentStorage:
                 finally:
                     self._unlock_file(f)
             logger.info(f"Saved metadata for {len(self.metadata)} documents")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Error saving metadata: {e}")
 
     def save_document(self, filename: str, content: bytes, file_type: str) -> str:
@@ -129,6 +167,9 @@ class DocumentStorage:
         """
         import datetime
 
+        # Sanitize filename
+        safe_filename = self._sanitize_filename(filename)
+
         # Ensure documents directory exists
         self.documents_dir.mkdir(parents=True, exist_ok=True)
 
@@ -142,7 +183,7 @@ class DocumentStorage:
         # Save metadata
         metadata = DocumentMetadata(
             document_id=document_id,
-            filename=filename,
+            filename=safe_filename,
             file_type=file_type,
             file_size=len(content),
             upload_time=datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -162,6 +203,9 @@ class DocumentStorage:
         Returns:
             Path to the document file, or None if not found
         """
+        if not self._validate_document_id(document_id):
+            return None
+
         metadata = self.metadata.get(document_id)
         if not metadata:
             return None
@@ -180,6 +224,8 @@ class DocumentStorage:
         Returns:
             Document metadata, or None if not found
         """
+        if not self._validate_document_id(document_id):
+            return None
         return self.metadata.get(document_id)
 
     def list_documents(self) -> list[DocumentMetadata]:
