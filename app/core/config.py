@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # Document Storage
     documents_dir: str = "./data/documents"
     metadata_file: str = "./data/metadata.json"
+    max_upload_size_mb: int = 10
 
     # Logging
     log_level: str = "INFO"

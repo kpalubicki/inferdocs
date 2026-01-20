@@ -12,6 +12,7 @@ from app.api.schemas import (
     SummarizeRequest,
     SummarizeResponse,
 )
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.llm.factory import create_llm_client
 from app.services.documents import ingestor, storage
@@ -82,8 +83,15 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
     if file_ext not in SUPPORTED_EXTENSIONS:
         raise UnsupportedFileTypeError(file_ext)
 
-    # Read file content
-    content = await file.read()
+    # Read file content with size limit
+    max_size = settings.max_upload_size_mb * 1024 * 1024
+    content = await file.read(max_size + 1)
+
+    if len(content) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum size is {settings.max_upload_size_mb}MB",
+        )
 
     # Save document
     document_id = storage.save_document(

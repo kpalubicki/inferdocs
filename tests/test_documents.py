@@ -86,3 +86,21 @@ def test_upload_without_file(client: TestClient) -> None:
     response = client.post("/documents")
 
     assert response.status_code == 422  # Unprocessable Entity
+
+
+def test_upload_file_too_large(client: TestClient, temp_data_dir: Path) -> None:
+    """Test uploading a file that exceeds size limit."""
+    large_file = temp_data_dir / "large.txt"
+    large_content = b"x" * (11 * 1024 * 1024)  # 11MB (exceeds 10MB limit)
+    large_file.write_bytes(large_content)
+
+    with open(large_file, "rb") as f:
+        response = client.post(
+            "/documents",
+            files={"file": ("large.txt", f, "text/plain")},
+        )
+
+    assert response.status_code == 413
+    data = response.json()
+    assert "detail" in data
+    assert "10MB" in data["detail"]
