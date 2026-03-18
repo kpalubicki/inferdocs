@@ -55,7 +55,7 @@ class Settings(BaseSettings):
             return self.llm_model
 
         model_mapping = {
-            "ollama": "qwen2.5:3b-instruct",
+            "ollama": "qwen2.5:3b",
             "vllm": "meta-llama/Llama-3.1-8B-Instruct",
             "mock": "mock-model",
         }

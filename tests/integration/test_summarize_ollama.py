@@ -21,7 +21,7 @@ pytestmark = [
 def ollama_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """Create a test client with Ollama backend."""
     monkeypatch.setenv("LLM_BACKEND", "ollama")
-    monkeypatch.setenv("LLM_MODEL", "qwen2.5:3b-instruct")
+    monkeypatch.setenv("LLM_MODEL", "qwen2.5:3b")
 
     # Force reload
     from importlib import reload

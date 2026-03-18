@@ -1,231 +1,228 @@
-// InferDocs Playground JavaScript
-
 let documents = [];
+let selectedDocId = null;
+let currentMode = 'ask';
+let currentStyle = 'brief';
 
-// DOM Elements
+const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
-const uploadBtn = document.getElementById('uploadBtn');
 const uploadStatus = document.getElementById('uploadStatus');
-const refreshBtn = document.getElementById('refreshBtn');
-const documentsList = document.getElementById('documentsList');
-const documentSelect = document.getElementById('documentSelect');
-const modeRadios = document.querySelectorAll('input[name="mode"]');
-const questionGroup = document.getElementById('questionGroup');
+const docsList = document.getElementById('docsList');
+const docDot = document.getElementById('docDot');
+const docIndicatorText = document.getElementById('docIndicatorText');
+const askPanel = document.getElementById('askPanel');
+const summarizePanel = document.getElementById('summarizePanel');
 const questionInput = document.getElementById('questionInput');
-const streamCheckbox = document.getElementById('streamCheckbox');
 const sendBtn = document.getElementById('sendBtn');
+const summarizeBtn = document.getElementById('summarizeBtn');
+const maxLength = document.getElementById('maxLength');
 const output = document.getElementById('output');
+const outputLabel = document.getElementById('outputLabel');
+const spinner = document.getElementById('spinner');
 
-// Event Listeners
-uploadBtn.addEventListener('click', uploadDocument);
-refreshBtn.addEventListener('click', loadDocuments);
-modeRadios.forEach(radio => radio.addEventListener('change', toggleQuestionInput));
-sendBtn.addEventListener('click', handleSend);
+// Upload zone
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragging'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragging'));
+uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragging');
+  const file = e.dataTransfer.files[0];
+  if (file) handleUpload(file);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleUpload(fileInput.files[0]);
+});
 
-// Initialize
+// Mode tabs
+document.querySelectorAll('.mode-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentMode = tab.dataset.mode;
+    askPanel.style.display = currentMode === 'ask' ? 'block' : 'none';
+    summarizePanel.style.display = currentMode === 'summarize' ? 'block' : 'none';
+  });
+});
+
+// Style buttons
+document.querySelectorAll('.style-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentStyle = btn.dataset.style;
+  });
+});
+
+// Send question on Enter
+questionInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+sendBtn.addEventListener('click', send);
+summarizeBtn.addEventListener('click', runSummarize);
+
+// Init
 loadDocuments();
 
-// Upload Document
-async function uploadDocument() {
-    const file = fileInput.files[0];
-    if (!file) {
-        showStatus('Please select a file', 'error');
-        return;
-    }
+// --- Upload ---
+async function handleUpload(file) {
+  const form = new FormData();
+  form.append('file', file);
+  showStatus('Uploading…', null);
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        uploadBtn.disabled = true;
-        showStatus('Uploading...', 'info');
-
-        const response = await fetch('/documents', {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            showStatus(`Success: ${data.message}`, 'success');
-            fileInput.value = '';
-            loadDocuments();
-        } else {
-            showStatus(`Error: ${data.error || data.detail}`, 'error');
-        }
-    } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
-    } finally {
-        uploadBtn.disabled = false;
-    }
-}
-
-// Load Documents List
-async function loadDocuments() {
-    try {
-        const response = await fetch('/documents');
-        const data = await response.json();
-
-        documents = data.documents || [];
-        displayDocuments();
-        updateDocumentSelect();
-    } catch (error) {
-        console.error('Error loading documents:', error);
-    }
-}
-
-// Display Documents in List
-function displayDocuments() {
-    if (documents.length === 0) {
-        documentsList.innerHTML = '<p class="placeholder">No documents uploaded yet.</p>';
-        return;
-    }
-
-    documentsList.innerHTML = documents.map(doc => `
-        <div class="document-item">
-            <div class="document-name">${escapeHtml(doc.filename)}</div>
-            <div class="document-meta">
-                ID: ${doc.document_id.substring(0, 8)}... |
-                Type: ${doc.file_type} |
-                Size: ${formatBytes(doc.file_size)}
-            </div>
-        </div>
-    `).join('');
-}
-
-// Update Document Select Dropdown
-function updateDocumentSelect() {
-    documentSelect.innerHTML = '<option value="">-- Select a document --</option>';
-
-    documents.forEach(doc => {
-        const option = document.createElement('option');
-        option.value = doc.document_id;
-        option.textContent = doc.filename;
-        documentSelect.appendChild(option);
-    });
-}
-
-// Toggle Question Input
-function toggleQuestionInput() {
-    const mode = document.querySelector('input[name="mode"]:checked').value;
-    questionGroup.style.display = mode === 'ask' ? 'block' : 'none';
-}
-
-// Handle Send Button
-async function handleSend() {
-    const documentId = documentSelect.value;
-    if (!documentId) {
-        alert('Please select a document');
-        return;
-    }
-
-    const mode = document.querySelector('input[name="mode"]:checked').value;
-    const useStream = streamCheckbox.checked;
-
-    if (mode === 'summarize') {
-        await summarizeDocument(documentId, useStream);
+  try {
+    const res = await fetch('/documents', { method: 'POST', body: form });
+    const data = await res.json();
+    if (res.ok) {
+      showStatus(`Uploaded: ${data.filename ?? file.name}`, 'success');
+      fileInput.value = '';
+      await loadDocuments();
+      selectDoc(data.document_id);
     } else {
-        const question = questionInput.value.trim();
-        if (!question) {
-            alert('Please enter a question');
-            return;
-        }
-        await askQuestion(documentId, question, useStream);
+      showStatus(data.error ?? data.detail ?? 'Upload failed', 'error');
     }
+  } catch (e) {
+    showStatus(e.message, 'error');
+  }
 }
 
-// Summarize Document
-async function summarizeDocument(documentId, useStream) {
-    try {
-        sendBtn.disabled = true;
-        output.innerHTML = '<div class="spinner"></div>';
-        output.classList.add('loading');
-
-        const response = await fetch(`/documents/${documentId}/summarize`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({})
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            output.classList.remove('loading');
-            output.textContent = data.summary;
-        } else {
-            output.classList.remove('loading');
-            output.innerHTML = `<span style="color: red;">Error: ${data.error || data.detail}</span>`;
-        }
-    } catch (error) {
-        output.classList.remove('loading');
-        output.innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
-    } finally {
-        sendBtn.disabled = false;
-    }
+// --- Load documents ---
+async function loadDocuments() {
+  try {
+    const res = await fetch('/documents');
+    const data = await res.json();
+    documents = data.documents ?? [];
+    renderDocs();
+  } catch (e) {
+    console.error('Failed to load documents', e);
+  }
 }
 
-// Ask Question
-async function askQuestion(documentId, question, useStream) {
-    try {
-        sendBtn.disabled = true;
-        output.innerHTML = '<div class="spinner"></div>';
-        output.classList.add('loading');
+function renderDocs() {
+  if (documents.length === 0) {
+    docsList.innerHTML = '<p class="empty-docs">No documents yet</p>';
+    return;
+  }
 
-        const response = await fetch(`/documents/${documentId}/ask`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ question })
-        });
+  docsList.innerHTML = documents.map(doc => `
+    <div class="doc-item ${doc.document_id === selectedDocId ? 'active' : ''}" data-id="${doc.document_id}">
+      <span class="doc-icon">${doc.file_type === '.pdf' ? '📋' : '📝'}</span>
+      <span class="doc-name">${escapeHtml(doc.filename)}</span>
+      <span class="doc-delete" data-id="${doc.document_id}" title="Delete">✕</span>
+    </div>
+  `).join('');
 
-        const data = await response.json();
+  docsList.querySelectorAll('.doc-item').forEach(el => {
+    el.addEventListener('click', () => selectDoc(el.dataset.id));
+  });
 
-        if (response.ok) {
-            output.classList.remove('loading');
-            output.innerHTML = `
-                <strong>Question:</strong> ${escapeHtml(question)}<br><br>
-                <strong>Answer:</strong> ${escapeHtml(data.answer)}
-            `;
-        } else {
-            output.classList.remove('loading');
-            output.innerHTML = `<span style="color: red;">Error: ${data.error || data.detail}</span>`;
-        }
-    } catch (error) {
-        output.classList.remove('loading');
-        output.innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
-    } finally {
-        sendBtn.disabled = false;
-    }
+  docsList.querySelectorAll('.doc-delete').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteDoc(el.dataset.id);
+    });
+  });
 }
 
-// Show Upload Status
-function showStatus(message, type) {
-    uploadStatus.textContent = message;
-    uploadStatus.className = `status-message ${type}`;
-
-    if (type === 'success') {
-        setTimeout(() => {
-            uploadStatus.textContent = '';
-            uploadStatus.className = 'status-message';
-        }, 3000);
-    }
+function selectDoc(id) {
+  selectedDocId = id;
+  const doc = documents.find(d => d.document_id === id);
+  docDot.classList.toggle('active', !!doc);
+  docIndicatorText.textContent = doc ? doc.filename : 'No document selected';
+  renderDocs();
 }
 
-// Utility Functions
-function formatBytes(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+async function deleteDoc(id) {
+  try {
+    await fetch(`/documents/${id}`, { method: 'DELETE' });
+    if (selectedDocId === id) {
+      selectedDocId = null;
+      docDot.classList.remove('active');
+      docIndicatorText.textContent = 'No document selected';
+    }
+    await loadDocuments();
+  } catch (e) {
+    console.error('Delete failed', e);
+  }
+}
+
+// --- Ask ---
+async function send() {
+  const question = questionInput.value.trim();
+  if (!question) return;
+  if (!selectedDocId) { setOutput('Select a document first.', true); return; }
+
+  setLoading(true, 'Thinking…');
+
+  try {
+    const res = await fetch(`/documents/${selectedDocId}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setOutput(data.answer);
+    } else {
+      setOutput(data.error ?? data.detail ?? 'Something went wrong.', true);
+    }
+  } catch (e) {
+    setOutput(e.message, true);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// --- Summarize ---
+async function runSummarize() {
+  if (!selectedDocId) { setOutput('Select a document first.', true); return; }
+
+  setLoading(true, 'Summarizing…');
+
+  try {
+    const res = await fetch(`/documents/${selectedDocId}/summarize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ style: currentStyle, max_length: parseInt(maxLength.value) || 150 }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setOutput(data.summary);
+    } else {
+      setOutput(data.error ?? data.detail ?? 'Something went wrong.', true);
+    }
+  } catch (e) {
+    setOutput(e.message, true);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// --- Helpers ---
+function setLoading(on, label = '') {
+  spinner.classList.toggle('active', on);
+  outputLabel.textContent = on ? label : 'Output';
+  sendBtn.disabled = on;
+  summarizeBtn.disabled = on;
+  if (on) output.innerHTML = '';
+}
+
+function setOutput(text, isError = false) {
+  output.style.color = isError ? 'var(--error)' : 'var(--text-muted)';
+  output.textContent = text;
+}
+
+function showStatus(msg, type) {
+  uploadStatus.textContent = msg;
+  uploadStatus.className = `status-bar${type ? ' ' + type : ''}`;
+  if (type === 'success') setTimeout(() => { uploadStatus.className = 'status-bar'; uploadStatus.textContent = ''; }, 3000);
 }
 
 function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
 }

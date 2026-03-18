@@ -38,7 +38,7 @@ git clone https://github.com/kpalubicki/inferdocs.git
 cd inferdocs
 
 # Install Ollama from https://ollama.ai/ if you haven't already
-ollama pull qwen2.5:3b-instruct
+ollama pull qwen2.5:3b
 
 # If script execution is blocked:
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
@@ -56,7 +56,7 @@ cd inferdocs
 
 curl -fsSL https://ollama.ai/install.sh | sh
 ollama serve
-ollama pull qwen2.5:3b-instruct
+ollama pull qwen2.5:3b
 
 chmod +x scripts/run_linux.sh
 ./scripts/run_linux.sh
@@ -85,7 +85,7 @@ curl http://localhost:8000/health
 {
   "status": "healthy",
   "backend": "ollama",
-  "model": "qwen2.5:3b-instruct",
+  "model": "qwen2.5:3b",
   "version": "0.1.0"
 }
 ```

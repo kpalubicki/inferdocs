@@ -1,91 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InferDocs Playground</title>
-    <link rel="stylesheet" href="/static/playground.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InferDocs Playground</title>
+  <link rel="stylesheet" href="/static/playground.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>InferDocs Playground</h1>
-            <p class="subtitle">Local Document Q&A & Summarization Service</p>
-        </header>
+  <div class="layout">
 
-        <div class="main-content">
-            <!-- Upload Section -->
-            <section class="card">
-                <h2>Upload Document</h2>
-                <div class="upload-area">
-                    <input type="file" id="fileInput" accept=".txt,.md,.pdf">
-                    <button id="uploadBtn" class="btn btn-primary">Upload</button>
-                </div>
-                <div id="uploadStatus" class="status-message"></div>
-            </section>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-icon">📄</div>
+        <div class="logo-text">
+          <h1>inferdocs</h1>
+          <p>local Q&A &amp; summarization</p>
+        </div>
+      </div>
 
-            <!-- Document List -->
-            <section class="card">
-                <h2>Documents</h2>
-                <button id="refreshBtn" class="btn btn-secondary">Refresh List</button>
-                <div id="documentsList" class="documents-list"></div>
-            </section>
+      <!-- Upload -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Upload</div>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept=".txt,.md,.pdf">
+          <div class="upload-icon">↑</div>
+          <p>Drop file or click to browse</p>
+          <span>PDF · TXT · MD</span>
+        </div>
+        <div class="status-bar" id="uploadStatus"></div>
+      </div>
 
-            <!-- Action Section -->
-            <section class="card">
-                <h2>Action</h2>
+      <!-- Documents -->
+      <div class="sidebar-section-title" style="padding: 12px 16px 4px">Documents</div>
+      <div class="docs-list-wrap" id="docsList">
+        <p class="empty-docs">No documents yet</p>
+      </div>
 
-                <div class="form-group">
-                    <label for="documentSelect">Select Document:</label>
-                    <select id="documentSelect" class="form-control">
-                        <option value="">-- Select a document --</option>
-                    </select>
-                </div>
+      <div class="sidebar-footer">
+        <p>API: <a href="/docs" target="_blank">/docs</a> · <a href="/redoc" target="_blank">/redoc</a></p>
+        <p style="margin-top:4px">Powered by Ollama</p>
+      </div>
+    </aside>
 
-                <div class="form-group">
-                    <label>Mode:</label>
-                    <div class="radio-group">
-                        <label>
-                            <input type="radio" name="mode" value="summarize" checked>
-                            Summarize
-                        </label>
-                        <label>
-                            <input type="radio" name="mode" value="ask">
-                            Ask Question
-                        </label>
-                    </div>
-                </div>
+    <!-- Main -->
+    <div class="main">
+      <!-- Top bar -->
+      <div class="topbar">
+        <div class="mode-tabs">
+          <button class="mode-tab active" data-mode="ask">Ask</button>
+          <button class="mode-tab" data-mode="summarize">Summarize</button>
+        </div>
+        <div class="doc-indicator">
+          <div class="doc-dot" id="docDot"></div>
+          <span id="docIndicatorText">No document selected</span>
+        </div>
+      </div>
 
-                <div class="form-group" id="questionGroup" style="display: none;">
-                    <label for="questionInput">Question:</label>
-                    <textarea id="questionInput" class="form-control" rows="2"
-                              placeholder="Enter your question about the document..."></textarea>
-                </div>
+      <!-- Work area -->
+      <div class="work-area">
 
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="streamCheckbox">
-                        Enable Streaming (if supported)
-                    </label>
-                </div>
-
-                <button id="sendBtn" class="btn btn-primary btn-large">Send</button>
-            </section>
-
-            <!-- Output Section -->
-            <section class="card">
-                <h2>Output</h2>
-                <div id="output" class="output-area">
-                    <p class="placeholder">Results will appear here...</p>
-                </div>
-            </section>
+        <!-- Ask mode -->
+        <div id="askPanel">
+          <div class="question-wrap">
+            <textarea
+              class="question-input"
+              id="questionInput"
+              rows="1"
+              placeholder="Ask a question about the document…"
+            ></textarea>
+            <button class="send-btn" id="sendBtn" title="Send">→</button>
+          </div>
         </div>
 
-        <footer>
-            <p>API Documentation: <a href="/docs" target="_blank">/docs</a> | <a href="/redoc" target="_blank">/redoc</a></p>
-        </footer>
-    </div>
+        <!-- Summarize mode -->
+        <div id="summarizePanel" style="display:none">
+          <div class="summarize-options">
+            <button class="style-btn active" data-style="brief">Brief</button>
+            <button class="style-btn" data-style="detailed">Detailed</button>
+            <button class="style-btn" data-style="custom">Custom</button>
+            <span class="length-label">Max words:</span>
+            <input class="length-input" type="number" id="maxLength" value="150" min="50" max="1000">
+            <button class="run-btn" id="summarizeBtn">Summarize</button>
+          </div>
+        </div>
 
-    <script src="/static/playground.js"></script>
+        <!-- Output -->
+        <div class="output-card">
+          <div class="output-header">
+            <div class="spinner" id="spinner"></div>
+            <span class="output-label" id="outputLabel">Output</span>
+          </div>
+          <div class="output-body" id="output">
+            <span class="output-placeholder">Select a document and ask a question or run a summary.</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/playground.js"></script>
 </body>
 </html>
