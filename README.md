@@ -24,8 +24,8 @@ I built this because I kept copy-pasting chunks of PDFs into ChatGPT to find spe
 - Upload TXT, MD, or PDF files
 - Summarize documents (brief, detailed, or custom length)
 - Ask free-form questions and get answers grounded in the document content
-- Swap between Ollama and vLLM backends via a single env variable
-- Mock backend available if you just want to test the API without a model running
+- Swap between Ollama and vLLM backends with one env variable
+- Mock backend for testing without a running model
 
 ---
 
@@ -156,25 +156,28 @@ LLM_MODEL=default
 APP_PORT=8000
 ```
 
-The `mock` backend returns dummy responses — useful for testing the API flow without needing Ollama running.
+The `mock` backend returns dummy responses — handy if you want to test the API without Ollama running.
 
 ---
 
 ## Tests
 
 ```bash
-# Unit tests
+# Unit + mock tests
 pytest
 
 # Integration tests (Ollama must be running)
 pytest -m integration
+
+# Skip integration tests
+SKIP_INTEGRATION=1 pytest
 ```
 
 ---
 
 ## Stack
 
-Python 3.11+, FastAPI, Pydantic v2, PyPDF, Ollama / vLLM
+Python 3.10+, FastAPI, Pydantic v2, PyPDF, Ollama / vLLM
 
 ---
 
@@ -185,7 +188,7 @@ Python 3.11+, FastAPI, Pydantic v2, PyPDF, Ollama / vLLM
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-Or just skip the script and run manually:
+Or run manually:
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
@@ -199,8 +202,8 @@ Ollama is already running, which is fine. Skip `ollama serve` and go straight to
 **Port 8000 taken**
 Set `APP_PORT=8001` in `.env`.
 
-**`requires-python >=3.11`**
-You need Python 3.11+. Download from https://python.org
+**`requires-python >=3.10`**
+Download Python 3.10+ from https://python.org
 
 ---
 

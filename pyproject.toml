@@ -9,20 +9,20 @@ authors = [
     { name = "Kamil Palubicki", email = "palubicki.kamil@gmail.com" }
 ]
 dependencies = [
-    "fastapi==0.115.6",
-    "uvicorn[standard]==0.32.1",
-    "pydantic==2.10.6",
-    "pydantic-settings==2.7.1",
-    "httpx==0.28.1",
-    "python-multipart==0.0.19",
-    "pypdf==5.1.0",
+    "fastapi>=0.115.6",
+    "uvicorn[standard]>=0.32.1",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "httpx>=0.28.1",
+    "python-multipart>=0.0.19",
+    "pypdf>=5.1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest==8.3.4",
-    "pytest-asyncio==0.24.0",
-    "ruff==0.8.4",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.4",
 ]
 
 [build-system]
