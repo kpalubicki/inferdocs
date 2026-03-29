@@ -1,5 +1,7 @@
 """Document summarization service."""
 
+from collections.abc import AsyncIterator
+
 from app.core.logging import get_logger
 from app.llm.base import LLMClient
 
@@ -42,6 +44,22 @@ class DocumentSummarizer:
             return summary
         except Exception as e:
             logger.error(f"Error during summarization: {e}")
+            raise
+
+    async def summarize_stream(
+        self,
+        content: str,
+        max_length: int | None = None,
+        style: str | None = None,
+    ) -> AsyncIterator[str]:
+        """Stream summarization of document content."""
+        prompt = self._build_summarization_prompt(content, max_length, style)
+        logger.info(f"Streaming summarization ({len(content)} chars)")
+        try:
+            async for chunk in await self.llm_client.stream(prompt):
+                yield chunk
+        except Exception as e:
+            logger.error(f"Error during streaming summarization: {e}")
             raise
 
     def _build_summarization_prompt(

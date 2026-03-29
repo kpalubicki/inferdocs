@@ -1,5 +1,7 @@
 """Document Q&A service."""
 
+from collections.abc import AsyncIterator
+
 from app.core.logging import get_logger
 from app.llm.base import LLMClient
 
@@ -36,6 +38,17 @@ class DocumentQA:
             return answer
         except Exception as e:
             logger.error(f"Error during Q&A: {e}")
+            raise
+
+    async def answer_question_stream(self, content: str, question: str) -> AsyncIterator[str]:
+        """Stream an answer to a question about document content."""
+        prompt = self._build_qa_prompt(content, question)
+        logger.info(f"Streaming Q&A for document ({len(content)} chars)")
+        try:
+            async for chunk in await self.llm_client.stream(prompt):
+                yield chunk
+        except Exception as e:
+            logger.error(f"Error during streaming Q&A: {e}")
             raise
 
     def _build_qa_prompt(self, content: str, question: str) -> str:

@@ -1,6 +1,9 @@
 """Document management endpoints."""
 
+from collections.abc import AsyncIterator
+
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.api.errors import DocumentNotFoundError, UnsupportedFileTypeError
 from app.api.schemas import (
@@ -197,3 +200,66 @@ async def ask_question(document_id: str, request: AskRequest) -> AskResponse:
             )
 
     return AskResponse(document_id=document_id, question=request.question, answer=answer)
+
+
+def _sse_event(data: str) -> str:
+    """Format a string as an SSE data event."""
+    return f"data: {data}\n\n"
+
+
+@router.post("/{document_id}/summarize/stream")
+async def summarize_document_stream(
+    document_id: str,
+    request: SummarizeRequest = SummarizeRequest(),
+) -> StreamingResponse:
+    """Stream summarization of a document as Server-Sent Events.
+
+    Each chunk is emitted as: data: <text>\\n\\n
+    A final 'data: [DONE]\\n\\n' event signals completion.
+    """
+    content = _get_document_content(document_id)
+
+    async def generate() -> AsyncIterator[str]:
+        async with create_llm_client() as llm_client:
+            summarizer = DocumentSummarizer(llm_client)
+            try:
+                async for chunk in summarizer.summarize_stream(
+                    content=content,
+                    max_length=request.max_length,
+                    style=request.style,
+                ):
+                    yield _sse_event(chunk)
+            except Exception as e:
+                logger.error(f"Error streaming summarization for {document_id}: {e}")
+                yield _sse_event("[ERROR]")
+        yield _sse_event("[DONE]")
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@router.post("/{document_id}/ask/stream")
+async def ask_question_stream(
+    document_id: str,
+    request: AskRequest,
+) -> StreamingResponse:
+    """Stream an answer to a question as Server-Sent Events.
+
+    Each chunk is emitted as: data: <text>\\n\\n
+    A final 'data: [DONE]\\n\\n' event signals completion.
+    """
+    content = _get_document_content(document_id)
+
+    async def generate() -> AsyncIterator[str]:
+        async with create_llm_client() as llm_client:
+            qa = DocumentQA(llm_client)
+            try:
+                async for chunk in qa.answer_question_stream(
+                    content=content, question=request.question
+                ):
+                    yield _sse_event(chunk)
+            except Exception as e:
+                logger.error(f"Error streaming Q&A for {document_id}: {e}")
+                yield _sse_event("[ERROR]")
+        yield _sse_event("[DONE]")
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
