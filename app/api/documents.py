@@ -9,11 +9,13 @@ from app.api.errors import DocumentNotFoundError, UnsupportedFileTypeError
 from app.api.schemas import (
     AskRequest,
     AskResponse,
+    DeleteDocumentResponse,
     DocumentListItem,
     DocumentListResponse,
     DocumentUploadResponse,
     SummarizeRequest,
     SummarizeResponse,
+    UsageStatsResponse,
 )
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -133,6 +135,32 @@ async def list_documents() -> DocumentListResponse:
     ]
 
     return DocumentListResponse(documents=items, count=len(items))
+
+
+@router.delete("/{document_id}", response_model=DeleteDocumentResponse)
+async def delete_document(document_id: str) -> DeleteDocumentResponse:
+    """Delete a document by ID."""
+    deleted = storage.delete_document(document_id)
+    if not deleted:
+        raise DocumentNotFoundError(document_id)
+    logger.info(f"Deleted document: {document_id}")
+    return DeleteDocumentResponse(document_id=document_id, message="Document deleted")
+
+
+@router.get("/stats", response_model=UsageStatsResponse)
+async def usage_stats() -> UsageStatsResponse:
+    """Return document count and total storage used."""
+    documents = storage.list_documents()
+    total_bytes = sum(d.file_size for d in documents)
+    file_types: dict[str, int] = {}
+    for d in documents:
+        file_types[d.file_type] = file_types.get(d.file_type, 0) + 1
+    return UsageStatsResponse(
+        document_count=len(documents),
+        total_size_bytes=total_bytes,
+        total_size_mb=round(total_bytes / (1024 * 1024), 3),
+        file_types=file_types,
+    )
 
 
 @router.post("/{document_id}/summarize", response_model=SummarizeResponse)

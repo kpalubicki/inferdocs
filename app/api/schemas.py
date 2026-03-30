@@ -66,6 +66,22 @@ class AskResponse(BaseModel):
     answer: str
 
 
+class DeleteDocumentResponse(BaseModel):
+    """Document deletion response."""
+
+    document_id: str
+    message: str
+
+
+class UsageStatsResponse(BaseModel):
+    """Usage stats response."""
+
+    document_count: int
+    total_size_bytes: int
+    total_size_mb: float
+    file_types: dict[str, int]
+
+
 class ErrorResponse(BaseModel):
     """Error response."""
 
