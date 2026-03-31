@@ -81,6 +81,29 @@ def test_list_documents_after_upload(client: TestClient, sample_txt_file: Path) 
     assert data["documents"][0]["file_type"] == ".txt"
 
 
+def test_get_document_metadata(client: TestClient, sample_txt_file: Path) -> None:
+    """Test fetching metadata for a single document."""
+    with open(sample_txt_file, "rb") as f:
+        upload = client.post("/documents", files={"file": ("test.txt", f, "text/plain")})
+    document_id = upload.json()["document_id"]
+
+    response = client.get(f"/documents/{document_id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["document_id"] == document_id
+    assert data["filename"] == "test.txt"
+    assert data["file_type"] == ".txt"
+    assert "file_size" in data
+    assert "upload_time" in data
+
+
+def test_get_document_not_found(client: TestClient) -> None:
+    """Test fetching metadata for a non-existent document."""
+    response = client.get("/documents/nonexistent-id")
+    assert response.status_code == 404
+
+
 def test_upload_without_file(client: TestClient) -> None:
     """Test upload endpoint without providing a file."""
     response = client.post("/documents")

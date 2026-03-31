@@ -137,16 +137,6 @@ async def list_documents() -> DocumentListResponse:
     return DocumentListResponse(documents=items, count=len(items))
 
 
-@router.delete("/{document_id}", response_model=DeleteDocumentResponse)
-async def delete_document(document_id: str) -> DeleteDocumentResponse:
-    """Delete a document by ID."""
-    deleted = storage.delete_document(document_id)
-    if not deleted:
-        raise DocumentNotFoundError(document_id)
-    logger.info(f"Deleted document: {document_id}")
-    return DeleteDocumentResponse(document_id=document_id, message="Document deleted")
-
-
 @router.get("/stats", response_model=UsageStatsResponse)
 async def usage_stats() -> UsageStatsResponse:
     """Return document count and total storage used."""
@@ -161,6 +151,31 @@ async def usage_stats() -> UsageStatsResponse:
         total_size_mb=round(total_bytes / (1024 * 1024), 3),
         file_types=file_types,
     )
+
+
+@router.get("/{document_id}", response_model=DocumentListItem)
+async def get_document(document_id: str) -> DocumentListItem:
+    """Get metadata for a single document by ID."""
+    metadata = storage.get_document_metadata(document_id)
+    if not metadata:
+        raise DocumentNotFoundError(document_id)
+    return DocumentListItem(
+        document_id=metadata.document_id,
+        filename=metadata.filename,
+        file_type=metadata.file_type,
+        file_size=metadata.file_size,
+        upload_time=metadata.upload_time,
+    )
+
+
+@router.delete("/{document_id}", response_model=DeleteDocumentResponse)
+async def delete_document(document_id: str) -> DeleteDocumentResponse:
+    """Delete a document by ID."""
+    deleted = storage.delete_document(document_id)
+    if not deleted:
+        raise DocumentNotFoundError(document_id)
+    logger.info(f"Deleted document: {document_id}")
+    return DeleteDocumentResponse(document_id=document_id, message="Document deleted")
 
 
 @router.post("/{document_id}/summarize", response_model=SummarizeResponse)
