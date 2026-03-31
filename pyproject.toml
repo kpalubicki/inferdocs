@@ -3,10 +3,19 @@ name = "inferdocs"
 version = "0.1.0"
 description = "Local Document Q&A & Summarization Service"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.16"
 license = { text = "MIT" }
 authors = [
     { name = "Kamil Palubicki", email = "palubicki.kamil@gmail.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Framework :: FastAPI",
 ]
 dependencies = [
     "fastapi>=0.115.6",
