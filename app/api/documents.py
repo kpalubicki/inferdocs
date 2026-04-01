@@ -13,6 +13,10 @@ from app.api.schemas import (
     DocumentListItem,
     DocumentListResponse,
     DocumentUploadResponse,
+    MultiAskRequest,
+    MultiAskResponse,
+    MultiSummarizeRequest,
+    MultiSummarizeResponse,
     SummarizeRequest,
     SummarizeResponse,
     UsageStatsResponse,
@@ -150,6 +154,71 @@ async def usage_stats() -> UsageStatsResponse:
         total_size_bytes=total_bytes,
         total_size_mb=round(total_bytes / (1024 * 1024), 3),
         file_types=file_types,
+    )
+
+
+def _get_multi_content(document_ids: list[str]) -> str:
+    """Concatenate content from multiple documents with separators."""
+    if not document_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one document_id is required",
+        )
+    parts = []
+    for doc_id in document_ids:
+        parts.append(f"[Document: {doc_id}]\n{_get_document_content(doc_id)}")
+    return "\n\n---\n\n".join(parts)
+
+
+@router.post("/multi/summarize", response_model=MultiSummarizeResponse)
+async def multi_summarize(request: MultiSummarizeRequest) -> MultiSummarizeResponse:
+    """Summarize multiple documents together.
+
+    Concatenates all document contents and produces a single summary.
+    """
+    content = _get_multi_content(request.document_ids)
+
+    async with create_llm_client() as llm_client:
+        summarizer = DocumentSummarizer(llm_client)
+        try:
+            summary = await summarizer.summarize(
+                content=content,
+                max_length=request.max_length,
+                style=request.style,
+            )
+        except Exception as e:
+            logger.error(f"Error summarizing multi-document set: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate summary",
+            )
+
+    return MultiSummarizeResponse(document_ids=request.document_ids, summary=summary)
+
+
+@router.post("/multi/ask", response_model=MultiAskResponse)
+async def multi_ask(request: MultiAskRequest) -> MultiAskResponse:
+    """Ask a question across multiple documents.
+
+    Concatenates all document contents and answers the question in context.
+    """
+    content = _get_multi_content(request.document_ids)
+
+    async with create_llm_client() as llm_client:
+        qa = DocumentQA(llm_client)
+        try:
+            answer = await qa.answer_question(content=content, question=request.question)
+        except Exception as e:
+            logger.error(f"Error answering multi-document question: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate answer",
+            )
+
+    return MultiAskResponse(
+        document_ids=request.document_ids,
+        question=request.question,
+        answer=answer,
     )
 
 

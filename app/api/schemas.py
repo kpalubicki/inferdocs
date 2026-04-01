@@ -66,6 +66,36 @@ class AskResponse(BaseModel):
     answer: str
 
 
+class MultiAskRequest(BaseModel):
+    """Multi-document Q&A request."""
+
+    document_ids: list[str] = Field(..., description="List of document IDs to query")
+    question: str = Field(..., description="Question to ask across all documents")
+
+
+class MultiAskResponse(BaseModel):
+    """Multi-document Q&A response."""
+
+    document_ids: list[str]
+    question: str
+    answer: str
+
+
+class MultiSummarizeRequest(BaseModel):
+    """Multi-document summarization request."""
+
+    document_ids: list[str] = Field(..., description="List of document IDs to summarize")
+    max_length: int | None = Field(None, description="Maximum length in words")
+    style: str | None = Field(None, description="Summary style (e.g., 'brief', 'detailed')")
+
+
+class MultiSummarizeResponse(BaseModel):
+    """Multi-document summarization response."""
+
+    document_ids: list[str]
+    summary: str
+
+
 class DeleteDocumentResponse(BaseModel):
     """Document deletion response."""
 
