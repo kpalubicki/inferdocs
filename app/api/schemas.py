@@ -112,6 +112,23 @@ class UsageStatsResponse(BaseModel):
     file_types: dict[str, int]
 
 
+class ConversationEntrySchema(BaseModel):
+    """A single Q&A exchange."""
+
+    timestamp: str
+    question: str
+    answer: str
+
+
+class ConversationHistoryResponse(BaseModel):
+    """Conversation history for a document."""
+
+    document_id: str
+    filename: str
+    count: int
+    entries: list[ConversationEntrySchema]
+
+
 class ErrorResponse(BaseModel):
     """Error response."""
 

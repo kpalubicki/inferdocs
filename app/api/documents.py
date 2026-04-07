@@ -1,14 +1,17 @@
 """Document management endpoints."""
 
+import json
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from app.api.errors import DocumentNotFoundError, UnsupportedFileTypeError
 from app.api.schemas import (
     AskRequest,
     AskResponse,
+    ConversationEntrySchema,
+    ConversationHistoryResponse,
     DeleteDocumentResponse,
     DocumentListItem,
     DocumentListResponse,
@@ -25,6 +28,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.llm.factory import create_llm_client
 from app.services.documents import ingestor, storage
+from app.services.documents.history import conversation_store
 from app.services.documents.qa import DocumentQA
 from app.services.documents.summarize import DocumentSummarizer
 
@@ -243,6 +247,7 @@ async def delete_document(document_id: str) -> DeleteDocumentResponse:
     deleted = storage.delete_document(document_id)
     if not deleted:
         raise DocumentNotFoundError(document_id)
+    conversation_store.clear(document_id)
     logger.info(f"Deleted document: {document_id}")
     return DeleteDocumentResponse(document_id=document_id, message="Document deleted")
 
@@ -311,7 +316,65 @@ async def ask_question(document_id: str, request: AskRequest) -> AskResponse:
                 detail="Failed to generate answer",
             )
 
+    conversation_store.append(document_id, request.question, answer)
     return AskResponse(document_id=document_id, question=request.question, answer=answer)
+
+
+@router.get("/{document_id}/history", response_model=ConversationHistoryResponse)
+async def get_conversation_history(document_id: str) -> ConversationHistoryResponse:
+    """Return the recorded Q&A history for a document."""
+    metadata = storage.get_document_metadata(document_id)
+    if not metadata:
+        raise DocumentNotFoundError(document_id)
+    entries = conversation_store.load(document_id)
+    return ConversationHistoryResponse(
+        document_id=document_id,
+        filename=metadata.filename,
+        count=len(entries),
+        entries=[ConversationEntrySchema(**e.to_dict()) for e in entries],
+    )
+
+
+@router.get("/{document_id}/history/export")
+async def export_conversation_history(
+    document_id: str, format: str = "md"
+) -> Response:
+    """Download conversation history as Markdown (default) or JSON.
+
+    Use ?format=json for JSON download.
+    """
+    metadata = storage.get_document_metadata(document_id)
+    if not metadata:
+        raise DocumentNotFoundError(document_id)
+
+    safe_name = metadata.filename.rsplit(".", 1)[0][:40].replace(" ", "-")
+
+    if format == "json":
+        entries = conversation_store.load(document_id)
+        content = json.dumps(
+            [e.to_dict() for e in entries], indent=2, ensure_ascii=False
+        ).encode("utf-8")
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}-history.json"'},
+        )
+
+    md = conversation_store.to_markdown(document_id, metadata.filename)
+    return Response(
+        content=md.encode("utf-8"),
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}-history.md"'},
+    )
+
+
+@router.delete("/{document_id}/history", response_model=None, status_code=status.HTTP_204_NO_CONTENT)
+async def clear_conversation_history(document_id: str) -> None:
+    """Delete all recorded Q&A history for a document."""
+    metadata = storage.get_document_metadata(document_id)
+    if not metadata:
+        raise DocumentNotFoundError(document_id)
+    conversation_store.clear(document_id)
 
 
 def _sse_event(data: str) -> str:
