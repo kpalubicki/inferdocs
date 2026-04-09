@@ -12,10 +12,10 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="logo-icon">📄</div>
+        <div class="logo-icon">&#x1F4C4;</div>
         <div class="logo-text">
           <h1>inferdocs</h1>
-          <p>local Q&A &amp; summarization</p>
+          <p>local Q&amp;A &amp; summarization</p>
         </div>
       </div>
 
@@ -24,9 +24,9 @@
         <div class="sidebar-section-title">Upload</div>
         <div class="upload-zone" id="uploadZone">
           <input type="file" id="fileInput" accept=".txt,.md,.pdf">
-          <div class="upload-icon">↑</div>
+          <div class="upload-icon">&#x2191;</div>
           <p>Drop file or click to browse</p>
-          <span>PDF · TXT · MD</span>
+          <span>PDF &middot; TXT &middot; MD</span>
         </div>
         <div class="status-bar" id="uploadStatus"></div>
       </div>
@@ -38,7 +38,7 @@
       </div>
 
       <div class="sidebar-footer">
-        <p>API: <a href="/docs" target="_blank">/docs</a> · <a href="/redoc" target="_blank">/redoc</a></p>
+        <p>API: <a href="/docs" target="_blank">/docs</a> &middot; <a href="/redoc" target="_blank">/redoc</a></p>
         <p style="margin-top:4px">Powered by Ollama</p>
       </div>
     </aside>
@@ -50,6 +50,7 @@
         <div class="mode-tabs">
           <button class="mode-tab active" data-mode="ask">Ask</button>
           <button class="mode-tab" data-mode="summarize">Summarize</button>
+          <button class="mode-tab" data-mode="history">History</button>
         </div>
         <div class="doc-indicator">
           <div class="doc-dot" id="docDot"></div>
@@ -67,9 +68,9 @@
               class="question-input"
               id="questionInput"
               rows="1"
-              placeholder="Ask a question about the document…"
+              placeholder="Ask a question about the document&#x2026;"
             ></textarea>
-            <button class="send-btn" id="sendBtn" title="Send">→</button>
+            <button class="send-btn" id="sendBtn" title="Send (Enter)">&#x2192;</button>
           </div>
         </div>
 
@@ -85,11 +86,25 @@
           </div>
         </div>
 
-        <!-- Output -->
-        <div class="output-card">
+        <!-- History mode -->
+        <div id="historyPanel" style="display:none">
+          <div class="history-toolbar">
+            <span class="history-count" id="historyCount"></span>
+            <div class="history-actions">
+              <button class="icon-btn" id="exportMdBtn" title="Download as Markdown">&#x2193; MD</button>
+              <button class="icon-btn" id="exportJsonBtn" title="Download as JSON">&#x2193; JSON</button>
+              <button class="icon-btn danger" id="clearHistoryBtn" title="Clear history">Clear</button>
+            </div>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </div>
+
+        <!-- Output (Ask + Summarize) -->
+        <div class="output-card" id="outputCard">
           <div class="output-header">
             <div class="spinner" id="spinner"></div>
             <span class="output-label" id="outputLabel">Output</span>
+            <button class="copy-btn" id="copyBtn" title="Copy to clipboard" style="display:none">Copy</button>
           </div>
           <div class="output-body" id="output">
             <span class="output-placeholder">Select a document and ask a question or run a summary.</span>
