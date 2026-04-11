@@ -61,7 +61,8 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
+addopts = "-m 'not integration'"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
+    "integration: marks tests that require a live Ollama instance (run with -m integration)",
 ]
