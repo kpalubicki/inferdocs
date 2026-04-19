@@ -28,6 +28,8 @@ class DocumentMetadata:
         file_type: str,
         file_size: int,
         upload_time: str,
+        language: str | None = None,
+        tags: list[str] | None = None,
     ) -> None:
         """Initialize document metadata."""
         self.document_id = document_id
@@ -35,6 +37,8 @@ class DocumentMetadata:
         self.file_type = file_type
         self.file_size = file_size
         self.upload_time = upload_time
+        self.language = language
+        self.tags: list[str] = tags or []
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -44,6 +48,8 @@ class DocumentMetadata:
             "file_type": self.file_type,
             "file_size": self.file_size,
             "upload_time": self.upload_time,
+            "language": self.language,
+            "tags": self.tags,
         }
 
 
@@ -130,6 +136,8 @@ class DocumentStorage:
                                 file_type=meta["file_type"],
                                 file_size=meta["file_size"],
                                 upload_time=meta["upload_time"],
+                                language=meta.get("language"),
+                                tags=meta.get("tags", []),
                             )
                     finally:
                         self._unlock_file(f)
@@ -154,13 +162,38 @@ class DocumentStorage:
         except OSError as e:
             logger.error(f"Error saving metadata: {e}")
 
-    def save_document(self, filename: str, content: bytes, file_type: str) -> str:
+    def set_tags(self, document_id: str, tags: list[str]) -> bool:
+        """Set tags for a document. Returns False if document not found."""
+        if not self._validate_document_id(document_id):
+            return False
+        metadata = self.metadata.get(document_id)
+        if not metadata:
+            return False
+        metadata.tags = tags
+        self._save_metadata()
+        return True
+
+    def set_language(self, document_id: str, language: str) -> bool:
+        """Set language for a document. Returns False if document not found."""
+        if not self._validate_document_id(document_id):
+            return False
+        metadata = self.metadata.get(document_id)
+        if not metadata:
+            return False
+        metadata.language = language
+        self._save_metadata()
+        return True
+
+    def save_document(
+        self, filename: str, content: bytes, file_type: str, language: str | None = None
+    ) -> str:
         """Save a document and return its ID.
 
         Args:
             filename: Original filename
             content: File content
             file_type: File type (extension)
+            language: Detected language of the document
 
         Returns:
             Document ID
@@ -187,6 +220,7 @@ class DocumentStorage:
             file_type=file_type,
             file_size=len(content),
             upload_time=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            language=language,
         )
         self.metadata[document_id] = metadata
         self._save_metadata()
@@ -228,13 +262,12 @@ class DocumentStorage:
             return None
         return self.metadata.get(document_id)
 
-    def list_documents(self) -> list[DocumentMetadata]:
-        """List all documents.
-
-        Returns:
-            List of document metadata
-        """
-        return list(self.metadata.values())
+    def list_documents(self, tag: str | None = None) -> list[DocumentMetadata]:
+        """List all documents, optionally filtered by tag."""
+        docs = list(self.metadata.values())
+        if tag:
+            docs = [d for d in docs if tag in d.tags]
+        return docs
 
     def delete_document(self, document_id: str) -> bool:
         """Delete a document.

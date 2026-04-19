@@ -22,6 +22,7 @@ from app.api.schemas import (
     MultiSummarizeResponse,
     SummarizeRequest,
     SummarizeResponse,
+    TagsRequest,
     UsageStatsResponse,
 )
 from app.core.config import settings
@@ -29,6 +30,7 @@ from app.core.logging import get_logger
 from app.llm.factory import create_llm_client
 from app.services.documents import ingestor, storage
 from app.services.documents.history import conversation_store
+from app.services.documents.language import detect_language
 from app.services.documents.qa import DocumentQA
 from app.services.documents.summarize import DocumentSummarizer
 
@@ -106,11 +108,22 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
             detail=f"File too large. Maximum size is {settings.max_upload_size_mb}MB",
         )
 
+    # Detect language from extracted text
+    try:
+        temp_path = storage.documents_dir / f"_tmp_lang{file_ext}"
+        temp_path.write_bytes(content)
+        text_sample = ingestor.extract_text(temp_path, file_ext)
+        temp_path.unlink(missing_ok=True)
+        detected_language = detect_language(text_sample)
+    except Exception:
+        detected_language = None
+
     # Save document
     document_id = storage.save_document(
         filename=file.filename,
         content=content,
         file_type=file_ext,
+        language=detected_language,
     )
 
     logger.info(f"Uploaded document: {document_id} ({file.filename})")
@@ -123,13 +136,9 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
 
 
 @router.get("", response_model=DocumentListResponse)
-async def list_documents() -> DocumentListResponse:
-    """List all documents.
-
-    Returns:
-        List of documents with metadata
-    """
-    documents = storage.list_documents()
+async def list_documents(tag: str | None = None) -> DocumentListResponse:
+    """List all documents, optionally filtered by tag."""
+    documents = storage.list_documents(tag=tag)
 
     items = [
         DocumentListItem(
@@ -138,6 +147,8 @@ async def list_documents() -> DocumentListResponse:
             file_type=doc.file_type,
             file_size=doc.file_size,
             upload_time=doc.upload_time,
+            language=doc.language,
+            tags=doc.tags,
         )
         for doc in documents
     ]
@@ -238,6 +249,8 @@ async def get_document(document_id: str) -> DocumentListItem:
         file_type=metadata.file_type,
         file_size=metadata.file_size,
         upload_time=metadata.upload_time,
+        language=metadata.language,
+        tags=metadata.tags,
     )
 
 
@@ -250,6 +263,24 @@ async def delete_document(document_id: str) -> DeleteDocumentResponse:
     conversation_store.clear(document_id)
     logger.info(f"Deleted document: {document_id}")
     return DeleteDocumentResponse(document_id=document_id, message="Document deleted")
+
+
+@router.put("/{document_id}/tags", response_model=DocumentListItem)
+async def set_document_tags(document_id: str, request: TagsRequest) -> DocumentListItem:
+    """Set tags for a document, replacing existing ones."""
+    updated = storage.set_tags(document_id, request.tags)
+    if not updated:
+        raise DocumentNotFoundError(document_id)
+    metadata = storage.get_document_metadata(document_id)
+    return DocumentListItem(
+        document_id=metadata.document_id,  # type: ignore[union-attr]
+        filename=metadata.filename,  # type: ignore[union-attr]
+        file_type=metadata.file_type,  # type: ignore[union-attr]
+        file_size=metadata.file_size,  # type: ignore[union-attr]
+        upload_time=metadata.upload_time,  # type: ignore[union-attr]
+        language=metadata.language,  # type: ignore[union-attr]
+        tags=metadata.tags,  # type: ignore[union-attr]
+    )
 
 
 @router.post("/{document_id}/summarize", response_model=SummarizeResponse)
@@ -270,6 +301,8 @@ async def summarize_document(
         HTTPException: If document is not found
     """
     content = _get_document_content(document_id)
+    metadata = storage.get_document_metadata(document_id)
+    language = metadata.language if metadata else None
 
     async with create_llm_client() as llm_client:
         summarizer = DocumentSummarizer(llm_client)
@@ -278,6 +311,7 @@ async def summarize_document(
                 content=content,
                 max_length=request.max_length,
                 style=request.style,
+                language=language,
             )
         except Exception as e:
             logger.error(f"Error summarizing document {document_id}: {e}")
@@ -304,11 +338,15 @@ async def ask_question(document_id: str, request: AskRequest) -> AskResponse:
         HTTPException: If document is not found
     """
     content = _get_document_content(document_id)
+    metadata = storage.get_document_metadata(document_id)
+    language = metadata.language if metadata else None
 
     async with create_llm_client() as llm_client:
         qa = DocumentQA(llm_client)
         try:
-            answer = await qa.answer_question(content=content, question=request.question)
+            answer = await qa.answer_question(
+                content=content, question=request.question, language=language
+            )
         except Exception as e:
             logger.error(f"Error answering question for document {document_id}: {e}")
             raise HTTPException(
@@ -393,6 +431,8 @@ async def summarize_document_stream(
     A final 'data: [DONE]\\n\\n' event signals completion.
     """
     content = _get_document_content(document_id)
+    _meta = storage.get_document_metadata(document_id)
+    _language = _meta.language if _meta else None
 
     async def generate() -> AsyncIterator[str]:
         async with create_llm_client() as llm_client:
@@ -402,6 +442,7 @@ async def summarize_document_stream(
                     content=content,
                     max_length=request.max_length,
                     style=request.style,
+                    language=_language,
                 ):
                     yield _sse_event(chunk)
             except Exception as e:
@@ -423,13 +464,15 @@ async def ask_question_stream(
     A final 'data: [DONE]\\n\\n' event signals completion.
     """
     content = _get_document_content(document_id)
+    _meta = storage.get_document_metadata(document_id)
+    _language = _meta.language if _meta else None
 
     async def generate() -> AsyncIterator[str]:
         async with create_llm_client() as llm_client:
             qa = DocumentQA(llm_client)
             try:
                 async for chunk in qa.answer_question_stream(
-                    content=content, question=request.question
+                    content=content, question=request.question, language=_language
                 ):
                     yield _sse_event(chunk)
             except Exception as e:

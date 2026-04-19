@@ -19,17 +19,11 @@ class DocumentQA:
         """
         self.llm_client = llm_client
 
-    async def answer_question(self, content: str, question: str) -> str:
-        """Answer a question about document content.
-
-        Args:
-            content: The document content
-            question: The question to answer
-
-        Returns:
-            The answer text
-        """
-        prompt = self._build_qa_prompt(content, question)
+    async def answer_question(
+        self, content: str, question: str, language: str | None = None
+    ) -> str:
+        """Answer a question about document content."""
+        prompt = self._build_qa_prompt(content, question, language)
         logger.info(f"Answering question about document ({len(content)} chars)")
 
         try:
@@ -40,9 +34,11 @@ class DocumentQA:
             logger.error(f"Error during Q&A: {e}")
             raise
 
-    async def answer_question_stream(self, content: str, question: str) -> AsyncIterator[str]:
+    async def answer_question_stream(
+        self, content: str, question: str, language: str | None = None
+    ) -> AsyncIterator[str]:
         """Stream an answer to a question about document content."""
-        prompt = self._build_qa_prompt(content, question)
+        prompt = self._build_qa_prompt(content, question, language)
         logger.info(f"Streaming Q&A for document ({len(content)} chars)")
         try:
             async for chunk in await self.llm_client.stream(prompt):
@@ -51,17 +47,10 @@ class DocumentQA:
             logger.error(f"Error during streaming Q&A: {e}")
             raise
 
-    def _build_qa_prompt(self, content: str, question: str) -> str:
-        """Build the Q&A prompt.
-
-        Args:
-            content: The document content
-            question: The question
-
-        Returns:
-            The formatted prompt
-        """
-        prompt = f"""Based on the following document, please answer the question.
+    def _build_qa_prompt(self, content: str, question: str, language: str | None = None) -> str:
+        """Build the Q&A prompt."""
+        lang_instruction = f" Respond in {language}." if language else ""
+        return f"""Based on the following document, please answer the question.{lang_instruction}
 
 Document content:
 {content}
@@ -69,4 +58,3 @@ Document content:
 Question: {question}
 
 Answer:"""
-        return prompt

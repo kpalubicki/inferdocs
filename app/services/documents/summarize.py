@@ -24,18 +24,10 @@ class DocumentSummarizer:
         content: str,
         max_length: int | None = None,
         style: str | None = None,
+        language: str | None = None,
     ) -> str:
-        """Summarize document content.
-
-        Args:
-            content: The document content to summarize
-            max_length: Optional maximum length for the summary
-            style: Optional style for the summary (e.g., 'brief', 'detailed')
-
-        Returns:
-            The summary text
-        """
-        prompt = self._build_summarization_prompt(content, max_length, style)
+        """Summarize document content."""
+        prompt = self._build_summarization_prompt(content, max_length, style, language)
         logger.info(f"Summarizing document ({len(content)} chars)")
 
         try:
@@ -51,9 +43,10 @@ class DocumentSummarizer:
         content: str,
         max_length: int | None = None,
         style: str | None = None,
+        language: str | None = None,
     ) -> AsyncIterator[str]:
         """Stream summarization of document content."""
-        prompt = self._build_summarization_prompt(content, max_length, style)
+        prompt = self._build_summarization_prompt(content, max_length, style, language)
         logger.info(f"Streaming summarization ({len(content)} chars)")
         try:
             async for chunk in await self.llm_client.stream(prompt):
@@ -67,18 +60,11 @@ class DocumentSummarizer:
         content: str,
         max_length: int | None = None,
         style: str | None = None,
+        language: str | None = None,
     ) -> str:
-        """Build the summarization prompt.
-
-        Args:
-            content: The document content
-            max_length: Optional maximum length
-            style: Optional style
-
-        Returns:
-            The formatted prompt
-        """
-        prompt_parts = ["Please summarize the following document:"]
+        """Build the summarization prompt."""
+        lang_instruction = f" Respond in {language}." if language else ""
+        prompt_parts = [f"Please summarize the following document.{lang_instruction}"]
 
         if style:
             prompt_parts.append(f"Style: {style}")

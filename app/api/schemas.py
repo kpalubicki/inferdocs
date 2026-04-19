@@ -29,6 +29,8 @@ class DocumentListItem(BaseModel):
     file_type: str
     file_size: int
     upload_time: str
+    language: str | None = None
+    tags: list[str] = []
 
 
 class DocumentListResponse(BaseModel):
@@ -127,6 +129,12 @@ class ConversationHistoryResponse(BaseModel):
     filename: str
     count: int
     entries: list[ConversationEntrySchema]
+
+
+class TagsRequest(BaseModel):
+    """Set tags for a document."""
+
+    tags: list[str] = Field(..., description="List of tags to assign to the document")
 
 
 class ErrorResponse(BaseModel):
