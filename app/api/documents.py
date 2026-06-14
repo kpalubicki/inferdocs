@@ -20,6 +20,8 @@ from app.api.schemas import (
     MultiAskResponse,
     MultiSummarizeRequest,
     MultiSummarizeResponse,
+    SimilarDocumentItem,
+    SimilarDocumentsResponse,
     SummarizeRequest,
     SummarizeResponse,
     TagsRequest,
@@ -29,6 +31,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.llm.factory import create_llm_client
 from app.services.documents import ingestor, storage
+from app.services.documents.similarity import find_similar
 from app.services.documents.history import conversation_store
 from app.services.documents.language import detect_language
 from app.services.documents.qa import DocumentQA
@@ -280,6 +283,55 @@ async def set_document_tags(document_id: str, request: TagsRequest) -> DocumentL
         upload_time=metadata.upload_time,  # type: ignore[union-attr]
         language=metadata.language,  # type: ignore[union-attr]
         tags=metadata.tags,  # type: ignore[union-attr]
+    )
+
+
+@router.get("/{document_id}/similar", response_model=SimilarDocumentsResponse)
+async def similar_documents(document_id: str, top: int = 5) -> SimilarDocumentsResponse:
+    """Find documents most similar to the given one using TF-IDF cosine similarity.
+
+    Returns up to `top` results (default 5), ordered by similarity score descending.
+    Scores range from 0 (no overlap) to 1 (identical content).
+    """
+    if top < 1 or top > 20:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="top must be between 1 and 20",
+        )
+
+    target_content = _get_document_content(document_id)
+
+    all_docs = storage.list_documents()
+    candidates: list[tuple[str, str]] = []
+    for doc in all_docs:
+        if doc.document_id == document_id:
+            continue
+        doc_path = storage.get_document_path(doc.document_id)
+        if not doc_path:
+            continue
+        try:
+            text = ingestor.extract_text(doc_path, doc.file_type)
+            if text.strip():
+                candidates.append((doc.document_id, text))
+        except Exception:
+            continue
+
+    similar = find_similar(target_content, candidates, top_n=top)
+
+    results: list[SimilarDocumentItem] = []
+    for doc_id, score in similar:
+        meta = storage.get_document_metadata(doc_id)
+        if meta:
+            results.append(SimilarDocumentItem(
+                document_id=doc_id,
+                filename=meta.filename,
+                score=score,
+            ))
+
+    return SimilarDocumentsResponse(
+        document_id=document_id,
+        top_n=top,
+        results=results,
     )
 
 

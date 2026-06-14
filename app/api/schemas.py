@@ -137,6 +137,22 @@ class TagsRequest(BaseModel):
     tags: list[str] = Field(..., description="List of tags to assign to the document")
 
 
+class SimilarDocumentItem(BaseModel):
+    """A document similar to the target."""
+
+    document_id: str
+    filename: str
+    score: float
+
+
+class SimilarDocumentsResponse(BaseModel):
+    """Similar documents result."""
+
+    document_id: str
+    top_n: int
+    results: list[SimilarDocumentItem]
+
+
 class ErrorResponse(BaseModel):
     """Error response."""
 
